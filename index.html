@@ -160,8 +160,10 @@
   .badge-legalfinance .dot { background: #99c2ff; }
   .badge-externalaffairs      { background: rgba(255,110,100,0.25); color: #ff9090; }
   .badge-externalaffairs .dot { background: #ff7070; }
-  .badge-productmanagement      { background: rgba(100,230,220,0.2); color: #80e8e0; }
-  .badge-productmanagement .dot { background: #60ddd4; }
+  .badge-productmanagement      { background: rgba(255,180,100,0.25); color: #ffb870; }
+  .badge-productmanagement .dot { background: #ffaa55; }  
+  .badge-consulting      { background: rgba(100,230,220,0.2); color: #80e8e0; }
+  .badge-consulting .dot { background: #60ddd4; }
   .badge-wealthmanagement      { background: rgba(120,220,120,0.22); color: #90e090; }
   .badge-wealthmanagement .dot { background: #70d870; }
   .badge-quant      { background: rgba(180,130,255,0.25); color: #c9a8ff; }
@@ -292,6 +294,56 @@
   .empty-state { color: var(--muted); padding: 40px 0; font-size: 14px; }
   .archive-note { color: var(--muted); font-size: 12px; margin-bottom: 16px; font-style: italic; }
 
+  /* COMPLETED TASK ROW */
+  .task-row-completed td { opacity: 0.45; }
+  .task-row-completed .task-desc { text-decoration: line-through; }
+  .task-row-completed td:last-child { opacity: 1; }
+
+  /* DONE CHECKBOX COMPLETED STATE */
+  .done-checkbox.checked-done {
+    background: #444;
+    border-color: #444;
+  }
+  .done-checkbox.checked-done::after {
+    content: '';
+    width: 9px; height: 9px;
+    background: #aaa;
+    border-radius: 1px;
+  }
+
+  /* ACTION BUTTONS CELL */
+  .action-btns {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+  }
+  .btn-archive-task {
+    background: #2a2a2a;
+    border: 1px solid #444;
+    color: #aaa;
+    border-radius: 6px;
+    padding: 3px 9px;
+    font-size: 11px;
+    cursor: pointer;
+    font-family: 'DM Sans', sans-serif;
+    transition: background 0.15s, color 0.15s;
+    white-space: nowrap;
+  }
+  .btn-archive-task:hover { background: #383838; color: #fff; }
+  .btn-edit-task {
+    background: #2a2a2a;
+    border: 1px solid #444;
+    color: #aaa;
+    border-radius: 6px;
+    padding: 3px 9px;
+    font-size: 11px;
+    cursor: pointer;
+    font-family: 'DM Sans', sans-serif;
+    transition: background 0.15s, color 0.15s;
+    white-space: nowrap;
+  }
+  .btn-edit-task:hover { background: #383838; color: #fff; }
+
   .loading {
     color: var(--muted);
     padding: 40px 0;
@@ -332,12 +384,13 @@
       <label>team</label>
       <select id="input-team">
         <option value="" disabled selected>choose</option>
-        <option value="executive">Executive</option>
+        <option value="executive">Executive/Ops</option>
         <option value="marketing">Marketing</option>
         <option value="activities">Activities</option>
         <option value="legalfinance">Legal/Finance</option>
         <option value="externalaffairs">External Affairs</option>
         <option value="productmanagement">Product Management</option>
+        <option value="consulting">Consulting</option>
         <option value="wealthmanagement">Wealth Management</option>
         <option value="quant">Quant</option>
       </select>
@@ -360,6 +413,47 @@
       <input type="text" id="input-deadline" placeholder="MM/DD/YYYY (optional)">
     </div>
     <button class="modal-submit" id="modal-submit">Add Task</button>
+  </div>
+</div>
+
+<!-- EDIT MODAL -->
+<div class="modal-overlay" id="edit-modal-overlay">
+  <div class="modal">
+    <button class="modal-close" id="edit-modal-close">✕</button>
+    <h2>Edit Task</h2>
+    <div class="modal-row">
+      <label>team</label>
+      <select id="edit-input-team">
+        <option value="" disabled>choose</option>
+        <option value="executive">Executive/Ops</option>
+        <option value="marketing">Marketing</option>
+        <option value="activities">Activities</option>
+        <option value="legalfinance">Legal/Finance</option>
+        <option value="externalaffairs">External Affairs</option>
+        <option value="productmanagement">Product Management</option>
+        <option value="consulting">Consulting</option>
+        <option value="wealthmanagement">Wealth Management</option>
+        <option value="quant">Quant</option>
+      </select>
+    </div>
+    <div class="modal-row">
+      <label>task</label>
+      <input type="text" id="edit-input-task" placeholder="describe the task…">
+    </div>
+    <div class="modal-row">
+      <label>urgency</label>
+      <select id="edit-input-urgency">
+        <option value="" disabled>choose</option>
+        <option value="urgent">Urgent</option>
+        <option value="medium">Medium</option>
+        <option value="low">Low</option>
+      </select>
+    </div>
+    <div class="modal-row">
+      <label>deadline</label>
+      <input type="text" id="edit-input-deadline" placeholder="MM/DD/YYYY (optional)">
+    </div>
+    <button class="modal-submit" id="edit-modal-submit">Save Changes</button>
   </div>
 </div>
 
@@ -386,29 +480,29 @@ const db  = getFirestore(app);
 
 // ── CONSTANTS ────────────────────────────────────────────────────────────────
 const TEAMS = [
-  { key: 'executive',         label: 'Executive' },
+  { key: 'executive',         label: 'Executive/Ops' },
   { key: 'marketing',         label: 'Marketing' },
   { key: 'activities',        label: 'Activities' },
   { key: 'legalfinance',      label: 'Legal/Finance' },
   { key: 'externalaffairs',   label: 'External Affairs' },
   { key: 'productmanagement', label: 'Product Management' },
+  { key: 'consulting',        label: 'Consulting' },
   { key: 'wealthmanagement',  label: 'Wealth Management' },
   { key: 'quant',             label: 'Quant' },
 ];
 const URGENCY_ORDER = { urgent: 0, medium: 1, low: 2 };
 
-let currentTab  = 'all';
-let activeTasks = [];
+let currentTab   = 'all';
+let activeTasks  = [];
 let archiveTasks = [];
+let editingId    = null;
 
 // ── FIRESTORE LISTENERS ──────────────────────────────────────────────────────
-// Listen to active tasks
 onSnapshot(collection(db, 'tasks'), snap => {
   activeTasks = snap.docs.map(d => ({ id: d.id, ...d.data() }));
   render();
 });
 
-// Listen to archive (most recent 15)
 onSnapshot(query(collection(db, 'archive'), orderBy('archivedAt', 'desc'), limit(15)), snap => {
   archiveTasks = snap.docs.map(d => ({ id: d.id, ...d.data() }));
   render();
@@ -444,21 +538,64 @@ function renderTabs() {
   });
 }
 
-function renderTaskTable(tasks, isArchive = false) {
-  if (tasks.length === 0) return `<p class="empty-state">No tasks here yet.</p>`;
+function renderActiveTable(tasks) {
+  // Split into active (not done) and completed (done)
+  const active    = tasks.filter(t => !t.done);
+  const completed = tasks.filter(t => t.done);
+
+  // Sort active by urgency, completed go to bottom
+  const sortedActive = [...active].sort((a, b) => URGENCY_ORDER[a.urgency] - URGENCY_ORDER[b.urgency]);
+  const allRows = [...sortedActive, ...completed];
+
+  if (allRows.length === 0) return `<p class="empty-state">No tasks here yet.</p>`;
+
+  const rows = allRows.map(t => {
+    const isDone = !!t.done;
+    return `
+      <tr class="${isDone ? 'task-row-completed' : ''}">
+        <td>
+          <div class="done-checkbox ${isDone ? 'checked-done' : ''}" data-id="${t.id}" data-action="toggle"></div>
+        </td>
+        <td>${teamBadgeHTML(t.team)}</td>
+        <td><span class="task-desc">${escHtml(t.desc)}</span></td>
+        <td>${urgencyPillHTML(t.urgency)}</td>
+        <td><span class="deadline-text">${escHtml(t.deadline || '—')}</span></td>
+        <td>
+          <div class="action-btns">
+            <button class="btn-edit-task" data-id="${t.id}">edit</button>
+            ${isDone ? `<button class="btn-archive-task" data-id="${t.id}">archive</button>` : ''}
+          </div>
+        </td>
+      </tr>
+    `;
+  }).join('');
+
+  return `
+    <table class="task-table">
+      <thead><tr>
+        <th>done</th><th>team</th><th>task</th><th>urgency</th><th>deadline</th><th></th>
+      </tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+  `;
+}
+
+function renderArchiveTable(tasks) {
+  if (tasks.length === 0) return `<p class="empty-state">No archived tasks yet.</p>`;
   const rows = tasks.map(t => `
     <tr>
-      <td><div class="done-checkbox ${isArchive ? 'checked-archive' : ''}" data-id="${t.id}" data-archive="${isArchive}"></div></td>
+      <td><div class="done-checkbox checked-archive" data-id="${t.id}" data-action="restore"></div></td>
       <td>${teamBadgeHTML(t.team)}</td>
       <td><span class="task-desc">${escHtml(t.desc)}</span></td>
       <td>${urgencyPillHTML(t.urgency)}</td>
       <td><span class="deadline-text">${escHtml(t.deadline || '—')}</span></td>
+      <td></td>
     </tr>
   `).join('');
   return `
     <table class="task-table">
       <thead><tr>
-        <th>done</th><th>team</th><th>task</th><th>urgency</th><th>deadline</th>
+        <th>done</th><th>team</th><th>task</th><th>urgency</th><th>deadline</th><th></th>
       </tr></thead>
       <tbody>${rows}</tbody>
     </table>
@@ -471,16 +608,16 @@ function render() {
 
   if (currentTab === 'archive') {
     content.innerHTML = `
-      <p class="archive-note">Showing up to 15 most recently completed tasks. Click the checkbox to restore a task to active.</p>
-      ${renderTaskTable(archiveTasks, true)}
+      <p class="archive-note">Showing up to 15 most recently archived tasks. Click the checkbox to restore a task to active.</p>
+      ${renderArchiveTable(archiveTasks)}
     `;
   } else {
     const filtered = currentTab === 'all'
       ? activeTasks
       : activeTasks.filter(t => t.team === currentTab);
-    const sorted = [...filtered].sort((a, b) => URGENCY_ORDER[a.urgency] - URGENCY_ORDER[b.urgency]);
+
     content.innerHTML = `
-      ${renderTaskTable(sorted, false)}
+      ${renderActiveTable(filtered)}
       <div class="add-task-row" id="add-task-btn">
         <div class="add-icon">+</div>
         <span>add task</span>
@@ -489,17 +626,34 @@ function render() {
     document.getElementById('add-task-btn').addEventListener('click', openModal);
   }
 
-  // Checkbox listeners
-  content.querySelectorAll('.done-checkbox').forEach(el => {
-    el.addEventListener('click', () => {
-      const id = el.dataset.id;
-      if (el.dataset.archive === 'true') restoreTask(id);
-      else archiveTask(id);
-    });
+  // Done checkbox toggle
+  content.querySelectorAll('.done-checkbox[data-action="toggle"]').forEach(el => {
+    el.addEventListener('click', () => toggleDone(el.dataset.id));
+  });
+
+  // Restore from archive
+  content.querySelectorAll('.done-checkbox[data-action="restore"]').forEach(el => {
+    el.addEventListener('click', () => restoreTask(el.dataset.id));
+  });
+
+  // Archive button (manual, only on completed tasks)
+  content.querySelectorAll('.btn-archive-task').forEach(el => {
+    el.addEventListener('click', () => archiveTask(el.dataset.id));
+  });
+
+  // Edit button
+  content.querySelectorAll('.btn-edit-task').forEach(el => {
+    el.addEventListener('click', () => openEditModal(el.dataset.id));
   });
 }
 
 // ── TASK ACTIONS ─────────────────────────────────────────────────────────────
+async function toggleDone(id) {
+  const task = activeTasks.find(t => t.id === id);
+  if (!task) return;
+  await updateDoc(doc(db, 'tasks', id), { done: !task.done });
+}
+
 async function archiveTask(id) {
   const task = activeTasks.find(t => t.id === id);
   if (!task) return;
@@ -511,11 +665,11 @@ async function restoreTask(id) {
   const task = archiveTasks.find(t => t.id === id);
   if (!task) return;
   const { archivedAt, ...rest } = task;
-  await addDoc(collection(db, 'tasks'), { ...rest, createdAt: serverTimestamp() });
+  await addDoc(collection(db, 'tasks'), { ...rest, done: false, createdAt: serverTimestamp() });
   await deleteDoc(doc(db, 'archive', id));
 }
 
-// ── MODAL ────────────────────────────────────────────────────────────────────
+// ── ADD MODAL ────────────────────────────────────────────────────────────────
 function openModal() {
   const teamSelect = document.getElementById('input-team');
   teamSelect.value = (currentTab !== 'all' && currentTab !== 'archive') ? currentTab : '';
@@ -549,12 +703,56 @@ document.getElementById('modal-submit').addEventListener('click', async () => {
   btn.textContent = 'Adding…';
 
   await addDoc(collection(db, 'tasks'), {
-    team, desc, urgency, deadline, createdAt: serverTimestamp()
+    team, desc, urgency, deadline, done: false, createdAt: serverTimestamp()
   });
 
   btn.disabled = false;
   btn.textContent = 'Add Task';
   closeModal();
+});
+
+// ── EDIT MODAL ───────────────────────────────────────────────────────────────
+function openEditModal(id) {
+  const task = activeTasks.find(t => t.id === id);
+  if (!task) return;
+  editingId = id;
+  document.getElementById('edit-input-team').value    = task.team;
+  document.getElementById('edit-input-task').value    = task.desc;
+  document.getElementById('edit-input-urgency').value = task.urgency;
+  document.getElementById('edit-input-deadline').value = task.deadline || '';
+  document.getElementById('edit-modal-overlay').classList.add('open');
+}
+function closeEditModal() {
+  document.getElementById('edit-modal-overlay').classList.remove('open');
+  editingId = null;
+}
+
+document.getElementById('edit-modal-close').addEventListener('click', closeEditModal);
+document.getElementById('edit-modal-overlay').addEventListener('click', e => {
+  if (e.target === document.getElementById('edit-modal-overlay')) closeEditModal();
+});
+
+document.getElementById('edit-modal-submit').addEventListener('click', async () => {
+  if (!editingId) return;
+  const team     = document.getElementById('edit-input-team').value;
+  const desc     = document.getElementById('edit-input-task').value.trim();
+  const urgency  = document.getElementById('edit-input-urgency').value;
+  const deadline = document.getElementById('edit-input-deadline').value.trim();
+
+  if (!team || !desc || !urgency) {
+    alert('Please fill in team, task description, and urgency.');
+    return;
+  }
+
+  const btn = document.getElementById('edit-modal-submit');
+  btn.disabled = true;
+  btn.textContent = 'Saving…';
+
+  await updateDoc(doc(db, 'tasks', editingId), { team, desc, urgency, deadline });
+
+  btn.disabled = false;
+  btn.textContent = 'Save Changes';
+  closeEditModal();
 });
 </script>
 </body>
