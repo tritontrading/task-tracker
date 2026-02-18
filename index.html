@@ -496,15 +496,16 @@ let currentTab   = 'all';
 let activeTasks  = [];
 let archiveTasks = [];
 let editingId    = null;
+let processing   = new Set();
 
 // ── FIRESTORE LISTENERS ──────────────────────────────────────────────────────
 onSnapshot(collection(db, 'tasks'), snap => {
-  activeTasks = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+  activeTasks = snap.docs.map(d => ({ ...d.data(), _firebaseId: d.id }));
   render();
 });
 
 onSnapshot(query(collection(db, 'archive'), orderBy('archivedAt', 'desc'), limit(15)), snap => {
-  archiveTasks = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+  archiveTasks = snap.docs.map(d => ({ ...d.data(), _firebaseId: d.id }));
   render();
 });
 
@@ -554,7 +555,7 @@ function renderActiveTable(tasks) {
     return `
       <tr class="${isDone ? 'task-row-completed' : ''}">
         <td>
-          <div class="done-checkbox ${isDone ? 'checked-done' : ''}" data-id="${t.id}" data-action="toggle"></div>
+          <div class="done-checkbox ${isDone ? 'checked-done' : ''}" data-id="${t._firebaseId}" data-action="toggle"></div>
         </td>
         <td>${teamBadgeHTML(t.team)}</td>
         <td><span class="task-desc">${escHtml(t.desc)}</span></td>
@@ -562,8 +563,8 @@ function renderActiveTable(tasks) {
         <td><span class="deadline-text">${escHtml(t.deadline || '—')}</span></td>
         <td>
           <div class="action-btns">
-            <button class="btn-edit-task" data-id="${t.id}">edit</button>
-            ${isDone ? `<button class="btn-archive-task" data-id="${t.id}">archive</button>` : ''}
+            <button class="btn-edit-task" data-id="${t._firebaseId}">edit</button>
+            ${isDone ? `<button class="btn-archive-task" data-id="${t._firebaseId}">archive</button>` : ''}
           </div>
         </td>
       </tr>
@@ -584,7 +585,7 @@ function renderArchiveTable(tasks) {
   if (tasks.length === 0) return `<p class="empty-state">No archived tasks yet.</p>`;
   const rows = tasks.map(t => `
     <tr>
-      <td><div class="done-checkbox checked-archive" data-id="${t.id}" data-action="restore"></div></td>
+      <td><div class="done-checkbox checked-archive" data-id="${t._firebaseId}" data-action="restore"></div></td>
       <td>${teamBadgeHTML(t.team)}</td>
       <td><span class="task-desc">${escHtml(t.desc)}</span></td>
       <td>${urgencyPillHTML(t.urgency)}</td>
@@ -649,24 +650,42 @@ function render() {
 
 // ── TASK ACTIONS ─────────────────────────────────────────────────────────────
 async function toggleDone(id) {
-  const task = activeTasks.find(t => t.id === id);
-  if (!task) return;
-  await updateDoc(doc(db, 'tasks', id), { done: !task.done });
+  if (processing.has(id)) return;
+  processing.add(id);
+  try {
+    const task = activeTasks.find(t => t._firebaseId === id);
+    if (!task) return;
+    await updateDoc(doc(db, 'tasks', id), { done: !task.done });
+  } finally {
+    processing.delete(id);
+  }
 }
 
 async function archiveTask(id) {
-  const task = activeTasks.find(t => t.id === id);
-  if (!task) return;
-  await addDoc(collection(db, 'archive'), { ...task, archivedAt: serverTimestamp() });
-  await deleteDoc(doc(db, 'tasks', id));
+  if (processing.has(id)) return;
+  processing.add(id);
+  try {
+    const task = activeTasks.find(t => t._firebaseId === id);
+    if (!task) return;
+    await addDoc(collection(db, 'archive'), { ...task, archivedAt: serverTimestamp() });
+    await deleteDoc(doc(db, 'tasks', id));
+  } finally {
+    processing.delete(id);
+  }
 }
 
 async function restoreTask(id) {
-  const task = archiveTasks.find(t => t.id === id);
-  if (!task) return;
-  const { archivedAt, ...rest } = task;
-  await addDoc(collection(db, 'tasks'), { ...rest, done: false, createdAt: serverTimestamp() });
-  await deleteDoc(doc(db, 'archive', id));
+  if (processing.has(id)) return;
+  processing.add(id);
+  try {
+    const task = archiveTasks.find(t => t._firebaseId === id);
+    if (!task) return;
+    await deleteDoc(doc(db, 'archive', id));
+    const { archivedAt, _firebaseId, ...rest } = task;
+    await addDoc(collection(db, 'tasks'), { ...rest, done: false, createdAt: serverTimestamp() });
+  } finally {
+    processing.delete(id);
+  }
 }
 
 // ── ADD MODAL ────────────────────────────────────────────────────────────────
@@ -713,7 +732,7 @@ document.getElementById('modal-submit').addEventListener('click', async () => {
 
 // ── EDIT MODAL ───────────────────────────────────────────────────────────────
 function openEditModal(id) {
-  const task = activeTasks.find(t => t.id === id);
+  const task = activeTasks.find(t => t._firebaseId === id);
   if (!task) return;
   editingId = id;
   document.getElementById('edit-input-team').value    = task.team;
